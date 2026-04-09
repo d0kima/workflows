@@ -1,0 +1,43 @@
+on:
+    workflow_call:
+        inputs:
+            version:
+                required: true
+                type: string
+
+jobs:
+    publish-to-github-packages:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Set up Node.js
+              uses: actions/setup-node@v3
+              with:
+                  node-version: '18'
+                  registry-url: 'https://npm.pkg.github.com/'
+                  scope: '@d0kima'
+
+            - name: Publish to GitHub Packages
+              run: npm publish
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+    publish-release:
+        needs: publish-to-github-packages
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Create GitHub Release
+              uses: ncipollo/release-action@v1
+              with:
+                  tag: ${{ inputs.version }}
