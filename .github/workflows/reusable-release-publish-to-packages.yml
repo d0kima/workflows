@@ -39,7 +39,22 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v3
 
-            - name: Create GitHub Release
-              uses: ncipollo/release-action@v1
+            - name: Mark existing release as stable
+              uses: actions/github-script@v7
               with:
-                  tag: ${{ inputs.version }}
+                  script: |
+                      const tag = `${{ inputs.version }}`;
+                      const { owner, repo } = context.repo;
+
+                      const { data: release } = await github.rest.repos.getReleaseByTag({
+                          owner,
+                          repo,
+                          tag,
+                      });
+
+                      await github.rest.repos.updateRelease({
+                          owner,
+                          repo,
+                          release_id: release.id,
+                          prerelease: false,
+                      });
