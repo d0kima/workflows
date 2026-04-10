@@ -10,6 +10,18 @@ inputs:
     description: 'The path to the file to be published'
     required: true
     default: 'path/to/file.txt'
+  nexus-registry:
+    description: 'The Nexus registry URL'
+    required: true
+    default: 'https://nexus.example.com'
+  nexus-username:
+    description: 'The Nexus username'
+    required: true
+    default: 'username'
+  nexus-password:
+    description: 'The Nexus password'
+    required: true
+    default: 'password'
 
 runs:
   using: "composite"
@@ -17,9 +29,9 @@ runs:
     - name: Publish Raw Content to Nexus
       shell: bash
       env:
-        NEXUS_REGISTRY: ${{ secrets.NEXUS_REGISTRY }}
-        NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        NEXUS_REGISTRY: ${{ inputs.nexus-registry }}
+        NEXUS_USERNAME: ${{ inputs.nexus-username }}
+        NEXUS_PASSWORD: ${{ inputs.nexus-password }}
         REPOSITORY_NAME: ${{ inputs.repository-name }}
         FILE_PATH: ${{ inputs.file-path }}
       run: |
