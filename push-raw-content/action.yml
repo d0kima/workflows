@@ -6,6 +6,10 @@ inputs:
     description: 'The name of the Nexus repository'
     required: true
     default: 'my-repository'
+  upload-path:
+    description: 'The path to the file to be published'
+    required: true
+    default: 'path/to/file.txt'
   file-path:
     description: 'The path to the file to be published'
     required: true
@@ -34,5 +38,6 @@ runs:
         NEXUS_PASSWORD: ${{ inputs.nexus-password }}
         REPOSITORY_NAME: ${{ inputs.repository-name }}
         FILE_PATH: ${{ inputs.file-path }}
+        UPLOAD_PATH: ${{ inputs.upload-path }}
       run: |
-        curl -u $NEXUS_USERNAME:$NEXUS_PASSWORD --upload-file $FILE_PATH $NEXUS_REGISTRY/repository/$REPOSITORY_NAME/$(basename $FILE_PATH)
+        curl -u $NEXUS_USERNAME:$NEXUS_PASSWORD --upload-file $FILE_PATH $NEXUS_REGISTRY/repository/$REPOSITORY_NAME/$UPLOAD_PATH
