@@ -14,6 +14,10 @@ inputs:
     description: 'The Nexus repository URL'
     required: true
     default: 'https://nexus.example.com'
+  insecure-registry:
+    description: 'Set to true for an unsafe HTTP/self-signed registry'
+    required: false
+    default: 'false'
   repository-username:
     description: 'The Nexus repository username'
     required: true
@@ -25,15 +29,64 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Login to Nexus
-      uses: docker/login-action@v2
+    - name: Prepare registry and image reference
+      id: prepare
+      shell: bash
+      env:
+        REPOSITORY_URL: ${{ inputs.repository-url }}
+        REPOSITORY_NAME: ${{ inputs.repository-name }}
+        IMAGE_VERSION: ${{ inputs.image-version }}
+        INSECURE_REGISTRY: ${{ inputs.insecure-registry }}
+      run: |
+        set -euo pipefail
+
+        normalized_url="${REPOSITORY_URL%/}"
+        no_scheme="${normalized_url#http://}"
+        no_scheme="${no_scheme#https://}"
+
+        registry_host="${no_scheme%%/*}"
+        route_path="${no_scheme#*/}"
+
+        if [ "$route_path" = "$no_scheme" ]; then
+          image_ref="${registry_host}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
+        else
+          image_ref="${registry_host}/${route_path}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
+        fi
+
+        login_registry="$registry_host"
+        if [ "$INSECURE_REGISTRY" = "true" ]; then
+          login_registry="http://${registry_host}"
+        fi
+
+        {
+          echo "registry-host=${registry_host}"
+          echo "login-registry=${login_registry}"
+          echo "image-ref=${image_ref}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Set up Docker Buildx (insecure registry)
+      if: ${{ inputs.insecure-registry == 'true' }}
+      uses: docker/setup-buildx-action@v3
       with:
-        registry: ${{ inputs.repository-url }}
+        buildkitd-config-inline: |
+          [registry."${{ steps.prepare.outputs.registry-host }}"]
+            http = true
+            insecure = true
+
+    - name: Set up Docker Buildx
+      if: ${{ inputs.insecure-registry != 'true' }}
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Nexus
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ steps.prepare.outputs.login-registry }}
         username: ${{ inputs.repository-username }}
         password: ${{ inputs.repository-password }}
+
     - name: Build and Push Docker Image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v6
       with:
         context: .
         push: true
-        tags: ${{ inputs.repository-url }}/${{ inputs.repository-name }}:${{ inputs.image-version }}
+        tags: ${{ steps.prepare.outputs.image-ref }}
