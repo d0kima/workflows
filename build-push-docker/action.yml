@@ -59,11 +59,9 @@ runs:
           route_path="$trimmed_path"
         fi
 
-        if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
-          image_ref="${registry_host}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
-        else
-          image_ref="${registry_host}/${route_path}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
-        fi
+        # Keep image reference host-based. For Nexus path-based routing, the
+        # path is an endpoint concern, not part of the image repository name.
+        image_ref="${registry_host}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
 
         if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
           login_registry="$registry_host"
