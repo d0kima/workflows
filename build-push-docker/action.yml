@@ -14,6 +14,10 @@ inputs:
     description: 'The Nexus repository URL'
     required: true
     default: 'https://nexus.example.com'
+  repository-path:
+    description: 'Optional path prefix for path-based routing (e.g. repository/docker-hosted)'
+    required: false
+    default: ''
   insecure-registry:
     description: 'Set to true for an unsafe HTTP/self-signed registry'
     required: false
@@ -34,6 +38,7 @@ runs:
       shell: bash
       env:
         REPOSITORY_URL: ${{ inputs.repository-url }}
+        REPOSITORY_PATH: ${{ inputs.repository-path }}
         REPOSITORY_NAME: ${{ inputs.repository-name }}
         IMAGE_VERSION: ${{ inputs.image-version }}
         INSECURE_REGISTRY: ${{ inputs.insecure-registry }}
@@ -47,15 +52,27 @@ runs:
         registry_host="${no_scheme%%/*}"
         route_path="${no_scheme#*/}"
 
+        # If no path is provided in repository-url, use explicit repository-path input.
         if [ "$route_path" = "$no_scheme" ]; then
+          trimmed_path="${REPOSITORY_PATH#/}"
+          trimmed_path="${trimmed_path%/}"
+          route_path="$trimmed_path"
+        fi
+
+        if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
           image_ref="${registry_host}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
         else
           image_ref="${registry_host}/${route_path}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
         fi
 
-        login_registry="$no_scheme"
+        if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
+          login_registry="$registry_host"
+        else
+          login_registry="${registry_host}/${route_path}"
+        fi
+
         if [ "$INSECURE_REGISTRY" = "true" ]; then
-          login_registry="http://${no_scheme}"
+          login_registry="http://${login_registry}"
         fi
 
         {
