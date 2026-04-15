@@ -1,0 +1,99 @@
+name: Publish raw content
+description: Publish raw content to Nexus
+
+inputs:
+  repository-name:
+    description: 'The name of the Nexus repository'
+    required: true
+    default: 'my-repository'
+  upload-path:
+    description: 'Root output path where tagged files are published'
+    required: true
+    default: 'path/to/output'
+  tags:
+    description: 'One or more tags (comma, semicolon, space, or newline separated)'
+    required: true
+    default: 'latest'
+  file-path:
+    description: 'The path to the file to be published'
+    required: true
+    default: 'path/to/file.txt'
+  nexus-registry:
+    description: 'The Nexus registry URL'
+    required: true
+    default: 'https://nexus.example.com'
+  nexus-username:
+    description: 'The Nexus username'
+    required: true
+    default: 'username'
+  nexus-password:
+    description: 'The Nexus password'
+    required: true
+    default: 'password'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Publish Raw Content to Nexus
+      shell: bash
+      env:
+        NEXUS_REGISTRY: ${{ inputs.nexus-registry }}
+        NEXUS_USERNAME: ${{ inputs.nexus-username }}
+        NEXUS_PASSWORD: ${{ inputs.nexus-password }}
+        REPOSITORY_NAME: ${{ inputs.repository-name }}
+        FILE_PATH: ${{ inputs.file-path }}
+        UPLOAD_PATH: ${{ inputs.upload-path }}
+        TAGS: ${{ inputs.tags }}
+      run: |
+        set -euo pipefail
+
+        if [ ! -f "$FILE_PATH" ]; then
+          echo "Error: file does not exist: $FILE_PATH" >&2
+          exit 1
+        fi
+
+        normalized_registry="${NEXUS_REGISTRY%/}"
+        normalized_upload_path="${UPLOAD_PATH#/}"
+        normalized_upload_path="${normalized_upload_path%/}"
+        file_name="$(basename "$FILE_PATH")"
+
+        mapfile -t parsed_tags < <(
+          printf '%s' "$TAGS" \
+            | tr ',; ' '\n\n\n' \
+            | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+            | sed '/^$/d'
+        )
+
+        if [ "${#parsed_tags[@]}" -eq 0 ]; then
+          echo "Error: no tags provided in input 'tags'." >&2
+          exit 1
+        fi
+
+        for tag in "${parsed_tags[@]}"; do
+          if [ -n "$normalized_upload_path" ]; then
+            target_path="${normalized_upload_path}/${tag}/${file_name}"
+          else
+            target_path="${tag}/${file_name}"
+          fi
+
+          target_url="${normalized_registry}/repository/${REPOSITORY_NAME}/${target_path}"
+
+          status_code="$(
+            curl -sS -o /dev/null -w '%{http_code}' \
+              -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+              -I "$target_url" || true
+          )"
+
+          if [ "$status_code" = "200" ]; then
+            operation="update"
+          else
+            operation="upload"
+          fi
+
+          echo "${operation}: ${target_path}"
+
+          curl --fail-with-body \
+            -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" \
+            --upload-file "$FILE_PATH" \
+            "$target_url"
+        done

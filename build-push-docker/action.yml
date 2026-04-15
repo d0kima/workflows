@@ -1,0 +1,138 @@
+name: Build and Push Docker Image
+description: Build and push a Docker image to Nexus
+
+inputs:
+  tags:
+    description: 'One or more Docker tags (comma, semicolon, space, or newline separated)'
+    required: false
+    default: ''
+  image-version:
+    description: 'Backward-compatible single Docker tag used when tags is not set'
+    required: false
+    default: 'latest'
+  repository-name:
+    description: 'The name of the Nexus repository'
+    required: true
+    default: 'my-repository'
+  repository-url:
+    description: 'The Nexus repository URL'
+    required: true
+    default: 'https://nexus.example.com'
+  repository-path:
+    description: 'Optional path prefix for path-based routing (e.g. repository/docker-hosted)'
+    required: false
+    default: ''
+  insecure-registry:
+    description: 'Set to true for an unsafe HTTP/self-signed registry'
+    required: false
+    default: 'false'
+  repository-username:
+    description: 'The Nexus repository username'
+    required: true
+    default: 'username'
+  repository-password:
+    description: 'The Nexus repository password'
+    required: true
+    default: 'password'
+runs:
+  using: "composite"
+  steps:
+    - name: Prepare registry and image reference
+      id: prepare
+      shell: bash
+      env:
+        REPOSITORY_URL: ${{ inputs.repository-url }}
+        REPOSITORY_PATH: ${{ inputs.repository-path }}
+        REPOSITORY_NAME: ${{ inputs.repository-name }}
+        IMAGE_VERSION: ${{ inputs.image-version }}
+        TAGS: ${{ inputs.tags }}
+        INSECURE_REGISTRY: ${{ inputs.insecure-registry }}
+      run: |
+        set -euo pipefail
+
+        normalized_url="${REPOSITORY_URL%/}"
+        no_scheme="${normalized_url#http://}"
+        no_scheme="${no_scheme#https://}"
+
+        registry_host="${no_scheme%%/*}"
+        route_path="${no_scheme#*/}"
+
+        # If no path is provided in repository-url, use explicit repository-path input.
+        if [ "$route_path" = "$no_scheme" ]; then
+          trimmed_path="${REPOSITORY_PATH#/}"
+          trimmed_path="${trimmed_path%/}"
+          route_path="$trimmed_path"
+        fi
+
+        # Keep image reference host-based. For Nexus path-based routing, the
+        # path is an endpoint concern, not part of the image repository name.
+        image_ref_base="${registry_host}/${REPOSITORY_NAME}"
+
+        tag_input="${TAGS:-}"
+        if [ -z "$tag_input" ]; then
+          tag_input="${IMAGE_VERSION:-}"
+        fi
+
+        mapfile -t parsed_tags < <(
+          printf '%s' "$tag_input" \
+            | tr ',; ' '\n\n\n' \
+            | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+            | sed '/^$/d'
+        )
+
+        if [ "${#parsed_tags[@]}" -eq 0 ]; then
+          echo "Error: provide at least one tag through 'tags' or 'image-version'." >&2
+          exit 1
+        fi
+
+        image_refs=""
+        for tag in "${parsed_tags[@]}"; do
+          if [ -z "$image_refs" ]; then
+            image_refs="${image_ref_base}:${tag}"
+          else
+            image_refs="${image_refs}"$'\n'"${image_ref_base}:${tag}"
+          fi
+        done
+
+        if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
+          login_registry="$registry_host"
+        else
+          login_registry="${registry_host}/${route_path}"
+        fi
+
+        if [ "$INSECURE_REGISTRY" = "true" ]; then
+          login_registry="http://${login_registry}"
+        fi
+
+        {
+          echo "registry-host=${registry_host}"
+          echo "login-registry=${login_registry}"
+          printf 'image-refs<<EOF\n%s\nEOF\n' "$image_refs"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Set up Docker Buildx (insecure registry)
+      if: ${{ inputs.insecure-registry == 'true' }}
+      uses: docker/setup-buildx-action@v3
+      with:
+        buildkitd-config-inline: |
+          [registry."${{ steps.prepare.outputs.registry-host }}"]
+            http = true
+            insecure = true
+
+    - name: Set up Docker Buildx
+      if: ${{ inputs.insecure-registry != 'true' }}
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to Nexus
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ steps.prepare.outputs.login-registry }}
+        username: ${{ inputs.repository-username }}
+        password: ${{ inputs.repository-password }}
+
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        push: true
+        tags: ${{ steps.prepare.outputs.image-refs }}
