@@ -2,9 +2,13 @@ name: Build and Push Docker Image
 description: Build and push a Docker image to Nexus
 
 inputs:
+  tags:
+    description: 'One or more Docker tags (comma, semicolon, space, or newline separated)'
+    required: false
+    default: ''
   image-version:
-    description: 'The version tag for the Docker image'
-    required: true
+    description: 'Backward-compatible single Docker tag used when tags is not set'
+    required: false
     default: 'latest'
   repository-name:
     description: 'The name of the Nexus repository'
@@ -41,6 +45,7 @@ runs:
         REPOSITORY_PATH: ${{ inputs.repository-path }}
         REPOSITORY_NAME: ${{ inputs.repository-name }}
         IMAGE_VERSION: ${{ inputs.image-version }}
+        TAGS: ${{ inputs.tags }}
         INSECURE_REGISTRY: ${{ inputs.insecure-registry }}
       run: |
         set -euo pipefail
@@ -61,7 +66,33 @@ runs:
 
         # Keep image reference host-based. For Nexus path-based routing, the
         # path is an endpoint concern, not part of the image repository name.
-        image_ref="${registry_host}/${REPOSITORY_NAME}:${IMAGE_VERSION}"
+        image_ref_base="${registry_host}/${REPOSITORY_NAME}"
+
+        tag_input="${TAGS:-}"
+        if [ -z "$tag_input" ]; then
+          tag_input="${IMAGE_VERSION:-}"
+        fi
+
+        mapfile -t parsed_tags < <(
+          printf '%s' "$tag_input" \
+            | tr ',; ' '\n\n\n' \
+            | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+            | sed '/^$/d'
+        )
+
+        if [ "${#parsed_tags[@]}" -eq 0 ]; then
+          echo "Error: provide at least one tag through 'tags' or 'image-version'." >&2
+          exit 1
+        fi
+
+        image_refs=""
+        for tag in "${parsed_tags[@]}"; do
+          if [ -z "$image_refs" ]; then
+            image_refs="${image_ref_base}:${tag}"
+          else
+            image_refs="${image_refs}"$'\n'"${image_ref_base}:${tag}"
+          fi
+        done
 
         if [ -z "$route_path" ] || [ "$route_path" = "$no_scheme" ]; then
           login_registry="$registry_host"
@@ -76,7 +107,7 @@ runs:
         {
           echo "registry-host=${registry_host}"
           echo "login-registry=${login_registry}"
-          echo "image-ref=${image_ref}"
+          printf 'image-refs<<EOF\n%s\nEOF\n' "$image_refs"
         } >> "$GITHUB_OUTPUT"
 
     - name: Set up Docker Buildx (insecure registry)
@@ -104,4 +135,4 @@ runs:
       with:
         context: .
         push: true
-        tags: ${{ steps.prepare.outputs.image-ref }}
+        tags: ${{ steps.prepare.outputs.image-refs }}
