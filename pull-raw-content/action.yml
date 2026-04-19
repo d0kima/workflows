@@ -1,0 +1,55 @@
+name: Pull raw content from Nexus Repository
+description: Pull raw content from Nexus Repository
+
+inputs:
+  repository-name:
+    description: 'The name of the Nexus repository'
+    required: true
+    default: 'my-repository'
+  download-path:
+    description: 'Root output path where tagged files are downloaded'
+    required: true
+    default: 'path/to/download'
+  tag:
+    description: 'The tag to pull (e.g., "latest")'
+    required: true
+    default: 'latest'
+  nexus-registry:
+    description: 'The Nexus registry URL'
+    required: true
+    default: 'https://nexus.example.com'
+  nexus-username:
+    description: 'The Nexus username'
+    required: true
+    default: 'username'
+  nexus-password:
+    description: 'The Nexus password'
+    required: true
+    default: 'password'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Pull Raw Content from Nexus
+      shell: bash
+      env:
+        NEXUS_REGISTRY: ${{ inputs.nexus-registry }}
+        NEXUS_USERNAME: ${{ inputs.nexus-username }}
+        NEXUS_PASSWORD: ${{ inputs.nexus-password }}
+        REPOSITORY_NAME: ${{ inputs.repository-name }}
+        DOWNLOAD_PATH: ${{ inputs.download-path }}
+        TAG: ${{ inputs.tag }}
+      run: |
+        set -euo pipefail
+
+        normalized_registry="${NEXUS_REGISTRY%/}"
+        normalized_download_path="${DOWNLOAD_PATH#/}"
+        normalized_download_path="${normalized_download_path%/}"
+
+        download_url="$normalized_registry/repository/$REPOSITORY_NAME/$TAG"
+
+        echo "Downloading from $download_url to $normalized_download_path"
+
+        mkdir -p "$normalized_download_path"
+        
+        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o "$normalized_download_path/$(basename "$download_url")"
