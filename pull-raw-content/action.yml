@@ -53,7 +53,7 @@ runs:
         normalized_artifact_name="${ARTIFACT_NAME#/}"
 
         download_url="$normalized_registry/repository/$REPOSITORY_NAME/$normalized_download_path/$TAG/$normalized_artifact_name"
-        target_file_path="$normalized_artifact_name"
+        target_file_path="$normalized_download_path/$normalized_artifact_name"
 
         echo "Downloading from $download_url to $target_file_path"
 
