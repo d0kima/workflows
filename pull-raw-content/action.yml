@@ -50,11 +50,13 @@ runs:
         normalized_registry="${NEXUS_REGISTRY%/}"
         normalized_download_path="${DOWNLOAD_PATH#/}"
         normalized_download_path="${normalized_download_path%/}"
+        normalized_artifact_name="${ARTIFACT_NAME#/}"
 
-        download_url="$normalized_registry/repository/$REPOSITORY_NAME/$normalized_download_path/$TAG/$ARTIFACT_NAME"
+        download_url="$normalized_registry/repository/$REPOSITORY_NAME/$normalized_download_path/$TAG/$normalized_artifact_name"
+        target_file_path="$normalized_artifact_name"
 
-        echo "Downloading from $download_url to $normalized_download_path"
+        echo "Downloading from $download_url to $target_file_path"
 
         mkdir -p "$normalized_download_path"
         
-        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o "$ARTIFACT_NAME"
+        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -fL "$download_url" -o "$target_file_path"
