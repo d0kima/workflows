@@ -14,6 +14,10 @@ inputs:
     description: 'The tag to pull (e.g., "latest")'
     required: true
     default: 'latest'
+  artifact-name:
+    description: 'The name of the artifact to pull'
+    required: true
+    default: 'artifact.zip'
   nexus-registry:
     description: 'The Nexus registry URL'
     required: true
@@ -39,6 +43,7 @@ runs:
         REPOSITORY_NAME: ${{ inputs.repository-name }}
         DOWNLOAD_PATH: ${{ inputs.download-path }}
         TAG: ${{ inputs.tag }}
+        ARTIFACT_NAME: ${{ inputs.artifact-name }}
       run: |
         set -euo pipefail
 
@@ -46,10 +51,10 @@ runs:
         normalized_download_path="${DOWNLOAD_PATH#/}"
         normalized_download_path="${normalized_download_path%/}"
 
-        download_url="$normalized_registry/repository/$REPOSITORY_NAME/$TAG"
+        download_url="$normalized_registry/repository/$REPOSITORY_NAME/$normalized_download_path/$TAG/$ARTIFACT_NAME"
 
         echo "Downloading from $download_url to $normalized_download_path"
 
         mkdir -p "$normalized_download_path"
         
-        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o "$normalized_download_path/$(basename "$download_url")"
+        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o $ARTIFACT_NAME"
