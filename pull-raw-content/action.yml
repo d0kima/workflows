@@ -57,4 +57,4 @@ runs:
 
         mkdir -p "$normalized_download_path"
         
-        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o $ARTIFACT_NAME"
+        curl -u "$NEXUS_USERNAME:$NEXUS_PASSWORD" -L "$download_url" -o "$ARTIFACT_NAME"
