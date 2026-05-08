@@ -34,6 +34,10 @@ inputs:
     description: 'The Nexus repository password'
     required: true
     default: 'password'
+  repository-auth-token:
+    description: 'The token to authenticate to d0kima registry to retrieve private packages'
+    required: false
+    default: ''
 runs:
   using: "composite"
   steps:
@@ -136,3 +140,5 @@ runs:
         context: .
         push: true
         tags: ${{ steps.prepare.outputs.image-refs }}
+        secrets: |
+          npm_auth_token=${{ inputs.repository-auth-token }}
