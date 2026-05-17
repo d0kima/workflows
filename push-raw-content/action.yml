@@ -57,7 +57,13 @@ runs:
         normalized_upload_path="${normalized_upload_path%/}"
         file_name="$(basename "$FILE_PATH")"
 
-        mapfile -t parsed_tags < <(
+        parsed_tags=()
+        while IFS= read -r tag; do
+          tag="$(printf '%s' "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          if [ -n "$tag" ]; then
+            parsed_tags+=("$tag")
+          fi
+        done < <(
           printf '%s' "$TAGS" \
             | tr ',; ' '\n\n\n' \
             | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
