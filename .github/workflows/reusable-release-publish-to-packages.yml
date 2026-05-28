@@ -24,12 +24,14 @@ jobs:
               with:
                   node-version: '24'
 
-            - name: Login to nexus registry with username and password
-              run: npm login --registry https://nexus.d0kima.com/repository/npm-registry --scope=@d0kima --always-auth --username ${{ secrets.NEXUS_USERNAME }} --password ${{ secrets.NEXUS_PASSWORD }}
-                  
+            - name: Set up .npmrc for Nexus registry
+              run: |
+                  echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .npmrc
+                  echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} | base64)" >> .npmrc
+                  echo "//nexus.d0kima.com/repository/npm-registry/:always-auth=true" >> .npmrc
 
-            - name: Publish to GitHub Packages
-              run: npm publish
+            - name: Publish to Nexus Registry
+              run: npm publish --registry https://nexus.d0kima.com/repository/npm-registry/
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
     publish-release:
