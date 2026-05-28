@@ -12,7 +12,7 @@ on:
                 default: true
 
 jobs:
-    publish-to-github-packages:
+    publish-to-nexus:
         runs-on: ubuntu-latest
 
         steps:
