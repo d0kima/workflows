@@ -6,6 +6,10 @@ on:
             version:
                 required: true
                 type: string
+            is_release:
+                required: false
+                type: boolean
+                default: true
 
 jobs:
     publish-to-github-packages:
@@ -29,6 +33,7 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
     publish-release:
+        if: ${{ inputs.is_release }}
         needs: publish-to-github-packages
         runs-on: ubuntu-latest
         permissions:
