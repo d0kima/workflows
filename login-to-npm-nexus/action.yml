@@ -1,0 +1,22 @@
+name: Login to Nexus npm Registry
+description: Logs in to Nexus npm registry using provided credentials.
+
+inputs:
+  nexus-username:
+    description: 'The Nexus repository username'
+    required: true
+    default: 'username'
+  nexus-password:
+    description: 'The Nexus repository password'
+    required: true
+    default: 'password'
+  
+runs:
+  using: "composite"
+  steps:
+    - name: Set up .npmrc for Nexus registry
+      shell: bash
+      run: |
+          echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .npmrc
+          echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} | base64)" >> .npmrc
+          echo "//nexus.d0kima.com/repository/npm-registry/:always-auth=true" >> .npmrc

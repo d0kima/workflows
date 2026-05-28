@@ -24,11 +24,10 @@ jobs:
               with:
                   node-version: '24'
 
-            - name: Set up .npmrc for Nexus registry
-              run: |
-                  echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .npmrc
-                  echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ secrets.NEXUS_USERNAME }}:${{ secrets.NEXUS_PASSWORD }} | base64)" >> .npmrc
-                  echo "//nexus.d0kima.com/repository/npm-registry/:always-auth=true" >> .npmrc
+            - uses: ../../login-to-npm-nexus
+              with:
+                  nexus-username: ${{ secrets.NEXUS_USERNAME }}
+                  nexus-password: ${{ secrets.NEXUS_PASSWORD }}
 
             - name: Publish to Nexus Registry
               run: npm publish --registry https://nexus.d0kima.com/repository/npm-registry/
