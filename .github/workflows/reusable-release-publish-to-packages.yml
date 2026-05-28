@@ -10,9 +10,6 @@ on:
 jobs:
     publish-to-github-packages:
         runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            packages: write
 
         steps:
             - name: Checkout repository
@@ -22,8 +19,10 @@ jobs:
               uses: actions/setup-node@v3
               with:
                   node-version: '24'
-                  registry-url: 'https://npm.pkg.github.com/'
-                  scope: '@d0kima'
+
+            - name: Login to nexus registry with username and password
+              run: npm login --registry https://nexus.d0kima.com/repository/npm-registry --scope=@d0kima --always-auth --username ${{ secrets.NEXUS_USERNAME }} --password ${{ secrets.NEXUS_PASSWORD }}
+                  
 
             - name: Publish to GitHub Packages
               run: npm publish
