@@ -10,6 +10,10 @@ inputs:
     description: 'The Nexus repository password'
     required: true
     default: 'password'
+  use-pnpm:
+    description: 'Whether to configure pnpm for Nexus registry'
+    required: false
+    default: 'false'
   
 runs:
   using: "composite"
@@ -20,3 +24,7 @@ runs:
           echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .npmrc
           echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ inputs.nexus-username }}:${{ inputs.nexus-password }} | base64)" >> .npmrc
           echo "//nexus.d0kima.com/repository/npm-registry/:always-auth=true" >> .npmrc
+    - name: Configure pnpm
+      if: ${{ inputs.use-pnpm == 'true' }}
+      shell: bash
+      run: pnpm config set store-dir .pnpm-store
