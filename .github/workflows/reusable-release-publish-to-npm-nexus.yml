@@ -6,13 +6,14 @@ on:
             version:
                 required: true
                 type: string
+            is_release:
+                required: false
+                type: boolean
+                default: true
 
 jobs:
-    publish-to-github-packages:
+    publish-to-nexus:
         runs-on: ubuntu-latest
-        permissions:
-            contents: write
-            packages: write
 
         steps:
             - name: Checkout repository
@@ -22,14 +23,18 @@ jobs:
               uses: actions/setup-node@v3
               with:
                   node-version: '24'
-                  registry-url: 'https://npm.pkg.github.com/'
-                  scope: '@d0kima'
 
-            - name: Publish to GitHub Packages
-              run: npm publish
+            - uses: ../../login-to-npm-nexus
+              with:
+                  nexus-username: ${{ secrets.NEXUS_USERNAME }}
+                  nexus-password: ${{ secrets.NEXUS_PASSWORD }}
+
+            - name: Publish to Nexus Registry
+              run: npm publish --registry https://nexus.d0kima.com/repository/npm-registry/
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
     publish-release:
+        if: ${{ inputs.is_release }}
         needs: publish-to-github-packages
         runs-on: ubuntu-latest
         permissions:

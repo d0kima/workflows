@@ -1,0 +1,33 @@
+name: Login to Nexus npm Registry
+description: Logs in to Nexus npm registry using provided credentials.
+
+inputs:
+  nexus-username:
+    description: 'The Nexus repository username'
+    required: true
+    default: 'username'
+  nexus-password:
+    description: 'The Nexus repository password'
+    required: true
+    default: 'password'
+  use-pnpm:
+    description: 'Whether to configure pnpm for Nexus registry'
+    required: false
+    default: 'false'
+  
+runs:
+  using: "composite"
+  steps:
+    - name: Set up .npmrc for Nexus registry
+      shell: bash
+      run: |
+          echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .npmrc
+          echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ inputs.nexus-username }}:${{ inputs.nexus-password }} | base64)" >> .npmrc
+          echo "//nexus.d0kima.com/repository/npm-registry/:always-auth=true" >> .npmrc
+    - name: Set up .pnpmrc for pnpm
+      if: ${{ inputs.use-pnpm == 'true' }}
+      shell: bash
+      run: |
+          echo "@d0kima:registry=https://nexus.d0kima.com/repository/npm-registry/" > .pnpmrc
+          echo "//nexus.d0kima.com/repository/npm-registry/:_auth=$(echo -n ${{ inputs.nexus-username }}:${{ inputs.nexus-password }} | base64)" >> .pnpmrc
+          echo "store-dir=.pnpm-store" >> .pnpmrc
