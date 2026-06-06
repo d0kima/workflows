@@ -1,65 +1,82 @@
 # Created by Janin Michel-Mathias on 2026-04-09
 
+name: Release Publish to Nexus
+
 on:
-    workflow_call:
-        inputs:
-            version:
-                required: true
-                type: string
-            is_release:
-                required: false
-                type: boolean
-                default: true
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+      is_release:
+        required: false
+        type: boolean
+        default: true
+
+    secrets:
+      NEXUS_USERNAME:
+        required: true
+
+      NEXUS_PASSWORD:
+        required: true
+
+      PACKAGES_TOKEN:
+        required: true
 
 jobs:
-    publish-to-nexus:
-        runs-on: ubuntu-latest
+  publish-to-nexus:
+    runs-on: ubuntu-latest
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v3
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-            - name: Set up Node.js
-              uses: actions/setup-node@v3
-              with:
-                  node-version: '24'
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
 
-            - uses: ../../login-to-npm-nexus
-              with:
-                  nexus-username: ${{ secrets.NEXUS_USERNAME }}
-                  nexus-password: ${{ secrets.NEXUS_PASSWORD }}
+      - name: Login to Nexus npm Registry
+        uses: d0kima/workflows/login-to-npm-nexus@main
+        with:
+          nexus-username: ${{ secrets.NEXUS_USERNAME }}
+          nexus-password: ${{ secrets.NEXUS_PASSWORD }}
 
-            - name: Publish to Nexus Registry
-              run: npm publish --registry https://nexus.d0kima.com/repository/npm-registry/
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-    publish-release:
-        if: ${{ inputs.is_release }}
-        needs: publish-to-github-packages
-        runs-on: ubuntu-latest
-        permissions:
-            contents: write
+      - name: Publish to Nexus Registry
+        run: npm publish --registry https://nexus.d0kima.com/repository/npm-registry/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
 
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v3
+  publish-release:
+    if: ${{ inputs.is_release }}
+    needs: publish-to-nexus
+    runs-on: ubuntu-latest
 
-            - name: Mark existing release as stable
-              uses: actions/github-script@v7
-              with:
-                  script: |
-                      const tag = `${{ inputs.version }}`;
-                      const { owner, repo } = context.repo;
+    permissions:
+      contents: write
 
-                      const { data: release } = await github.rest.repos.getReleaseByTag({
-                          owner,
-                          repo,
-                          tag,
-                      });
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-                      await github.rest.repos.updateRelease({
-                          owner,
-                          repo,
-                          release_id: release.id,
-                          prerelease: false,
-                      });
+      - name: Mark existing release as stable
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = `${{ inputs.version }}`;
+            const { owner, repo } = context.repo;
+
+            const { data: release } =
+              await github.rest.repos.getReleaseByTag({
+                owner,
+                repo,
+                tag,
+              });
+
+            await github.rest.repos.updateRelease({
+              owner,
+              repo,
+              release_id: release.id,
+              prerelease: false,
+            });
