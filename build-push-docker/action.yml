@@ -140,5 +140,8 @@ runs:
         context: .
         push: true
         tags: ${{ steps.prepare.outputs.image-refs }}
+        build-args: |
+          NEXUS_USERNAME=${{ inputs.repository-username }}
+          NEXUS_PASSWORD=${{ inputs.repository-password }}
         secrets: |
           npm_auth_token=${{ inputs.repository-auth-token }}
